@@ -1,0 +1,76 @@
+[package]
+name = "mopro-ffi"
+version = "0.2.0"
+edition = "2021"
+description = "Mopro is a toolkit for ZK app development on mobile. Mopro makes client-side proving on mobile simple."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/zkmopro/mopro"
+documentation = "https://zkmopro.org/"
+homepage = "https://zkmopro.org/"
+exclude = ["target/*"]
+
+[features]
+default = ["build"]
+
+uniffi = [
+    "dep:uniffi",
+    "dep:num-bigint",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:thiserror",
+    "dep:uuid",
+]
+uniffi-tests = ["uniffi", "uniffi/bindgen-tests"]
+
+build = ["dep:toml", "dep:uuid", "dep:camino", "dep:anyhow", "dep:color-eyre"]
+
+# WASM
+wasm = [
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-rayon",
+    "uuid/js",
+]
+
+[dependencies]
+uniffi = { version = "=0.29.0", features = ["bindgen"], optional = true }
+num-bigint = { version = "0.4.3", default-features = false, features = [
+    "rand",
+], optional = true }
+toml = { version = "0.8.22", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0.94", optional = true }
+
+# Error handling (excluded for WASM to avoid mio dependency)
+thiserror = { version = "2.0.12", optional = true }
+anyhow = { version = "1.0.86", optional = true }
+color-eyre = { version = "0.6.3", optional = true }
+
+uuid = { version = "1.9.1", features = ["v4"], optional = true }
+camino = { version = "1.1.9" }
+
+wasm-bindgen = { version = "0.2.95", features = [
+    "serde-serialize",
+], optional = true }
+wasm-bindgen-rayon = { version = "1.2.2", features = [
+    "no-bundler",
+], optional = true }
+
+[build-dependencies]
+uuid = { version = "1.9.1", features = ["v4"], optional = true }
+camino = { version = "1.1.9", optional = true }
+
+[dev-dependencies]
+serial_test = "3.0.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = { version = "0.1.7" }
+getrandom = { version = "0.2.15", features = ["js"] }
+serde-wasm-bindgen = { version = "0.6.5" }
+wasm-bindgen = { version = "0.2.95", features = ["serde-serialize"] }
+wasm-bindgen-console-logger = { version = "0.1.1" }
+wasm-bindgen-futures = { version = "0.4.47" }
+# Temporarily disabled due to WASM target compatibility issues
+# wasm-bindgen-rayon = { version = "1.2.2", features = ["no-bundler"] }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = { version = "0.3.42" }

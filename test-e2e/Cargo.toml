@@ -1,0 +1,22 @@
+[package]
+name = "test-e2e"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ios"
+path = "bin/ios.rs"
+
+[[bin]]
+name = "web"
+path = "bin/web.rs"
+
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[dependencies]
+mopro-ffi = { path = "../mopro-ffi", features = ["uniffi"] }

@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "mopro-ffi",
+    "cli",
+    "test-e2e"
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Mopro project with FFI bindings, CLI, and E2E tests"
+license = "MIT"
+repository = "https://github.com/yourusername/mopro-refactor"
