@@ -1,9 +1,5 @@
 [workspace]
-members = [
-    "mopro-ffi",
-    "cli",
-    "test-e2e"
-]
+members = ["mopro-ffi", "cli", "test-e2e"]
 resolver = "2"
 
 [workspace.package]

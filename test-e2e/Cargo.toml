@@ -15,8 +15,17 @@ path = "bin/ios.rs"
 name = "web"
 path = "bin/web.rs"
 
+[[bin]]
+name = "android"
+path = "bin/android.rs"
+
+[[bin]]
+name = "flutter"
+path = "bin/flutter.rs"
+
 [lib]
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
-mopro-ffi = { path = "../mopro-ffi", features = ["uniffi"] }
+mopro-ffi = { path = "../mopro-ffi", features = ["uniffi", "flutter"] }
+flutter_rust_bridge = { version = "=2.11.1" }

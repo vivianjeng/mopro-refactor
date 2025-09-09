@@ -25,11 +25,10 @@ uniffi-tests = ["uniffi", "uniffi/bindgen-tests"]
 build = ["dep:toml", "dep:uuid", "dep:camino", "dep:anyhow", "dep:color-eyre"]
 
 # WASM
-wasm = [
-    "dep:wasm-bindgen",
-    "dep:wasm-bindgen-rayon",
-    "uuid/js",
-]
+wasm = ["dep:wasm-bindgen", "dep:wasm-bindgen-rayon", "uuid/js"]
+
+# Flutter
+flutter = ["dep:toml"]
 
 [dependencies]
 uniffi = { version = "=0.29.0", features = ["bindgen"], optional = true }

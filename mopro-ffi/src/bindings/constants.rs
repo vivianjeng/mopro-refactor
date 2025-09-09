@@ -268,6 +268,34 @@ impl Arch for WebArch {
     }
 }
 
+pub struct FlutterArch;
+
+impl Arch for FlutterArch {
+    fn platform() -> Box<dyn Platform> {
+        Box::new(FlutterPlatform)
+    }
+
+    fn as_str(&self) -> &'static str {
+        "flutter"
+    }
+
+    fn parse_from_str<S: AsRef<str>>(_s: S) -> Self {
+        FlutterArch
+    }
+
+    fn all_strings() -> Vec<&'static str> {
+        vec!["flutter"]
+    }
+
+    fn all_display_strings() -> Vec<(String, String)> {
+        vec![("flutter".to_string(), "Flutter".to_string())]
+    }
+
+    fn env_var_name() -> &'static str {
+        "FLUTTER_ARCHS"
+    }
+}
+
 //
 // Platform Section
 //
@@ -311,5 +339,13 @@ pub struct WebPlatform;
 impl Platform for WebPlatform {
     fn identifier() -> &'static str {
         "Web Bindings Builder"
+    }
+}
+
+pub struct FlutterPlatform;
+
+impl Platform for FlutterPlatform {
+    fn identifier() -> &'static str {
+        "Flutter Bindings Builder"
     }
 }
