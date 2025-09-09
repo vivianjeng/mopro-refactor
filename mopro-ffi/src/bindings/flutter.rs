@@ -1,8 +1,10 @@
+use anyhow::Context;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use toml::Value;
 
-use crate::bindings::constants::{FlutterArch, FlutterPlatform, Mode};
+use crate::bindings::constants::{FlutterArch, FlutterPlatform, Mode, FLUTTER_BINDINGS_DIR};
 
 use super::raw_project_name_from_toml;
 use super::PlatformBuilder;
@@ -32,7 +34,9 @@ impl PlatformBuilder for FlutterPlatform {
         init_flutter_bindings(project_dir)?;
 
         // Init workspace for bindings template
-        let cargo_toml_path = project_dir.join("mopro_flutter_bindings/rust/Cargo.toml");
+        let cargo_toml_path = project_dir
+            .join(FLUTTER_BINDINGS_DIR)
+            .join("rust/Cargo.toml");
         ensure_workspace_toml(&cargo_toml_path.to_string_lossy().to_string());
 
         // Import user defined crates
@@ -44,23 +48,32 @@ impl PlatformBuilder for FlutterPlatform {
                 "--path",
                 &project_dir.to_string_lossy().to_string(),
             ])
-            .current_dir(project_dir.join("mopro_flutter_bindings/rust"))
+            .current_dir(project_dir.join(FLUTTER_BINDINGS_DIR).join("rust"))
             .status()
             .expect("failed to run cargo add");
         if !cargo_add_status.success() {
             return Err(anyhow::anyhow!("Failed to add third party crate"));
         }
 
+        // Replace relative path with absolute path
+        replace_relative_path_with_absolute(
+            &cargo_toml_path,
+            &third_party_crate_name,
+            &project_dir,
+        )?;
+
         // Generate flutter bindings
+        let rust_root = project_dir.join(FLUTTER_BINDINGS_DIR).join("rust");
+        let dart_output = project_dir.join(FLUTTER_BINDINGS_DIR).join("lib/src/rust");
         let generate_status = Command::new("flutter_rust_bridge_codegen")
             .args(["generate"])
             .args([
                 "--rust-root",
-                "mopro_flutter_bindings/rust",
+                &rust_root.to_string_lossy(),
                 "--rust-input",
-                "test-e2e", // crate name
+                &third_party_crate_name,
                 "--dart-output",
-                "mopro_flutter_bindings/lib/src/rust",
+                &dart_output.to_string_lossy(),
             ])
             .current_dir(project_dir)
             .status()
@@ -69,15 +82,15 @@ impl PlatformBuilder for FlutterPlatform {
             return Err(anyhow::anyhow!("Failed to generate simple.rs"));
         }
 
-        Ok(PathBuf::from("MoproDartBindings"))
+        Ok(PathBuf::from(FLUTTER_BINDINGS_DIR))
     }
 }
 
 fn init_flutter_bindings(project_dir: &Path) -> anyhow::Result<()> {
-    let flutter_bindings_dir = project_dir.join("mopro_flutter_bindings");
+    let flutter_bindings_dir = project_dir.join(FLUTTER_BINDINGS_DIR);
     if !flutter_bindings_dir.exists() {
         let status = Command::new("flutter_rust_bridge_codegen")
-            .args(["create", "mopro_flutter_bindings", "--template", "plugin"])
+            .args(["create", FLUTTER_BINDINGS_DIR, "--template", "plugin"])
             .status()
             .expect("failed to run flutter_rust_bridge_codegen");
 
@@ -96,4 +109,38 @@ fn ensure_workspace_toml(cargo_toml_path: &str) {
         let new_content = format!("{content}\n\n[workspace]\n");
         fs::write(cargo_toml_path, new_content).expect("Failed to write updated Cargo.toml");
     }
+}
+
+fn replace_relative_path_with_absolute(
+    cargo_toml_path: &Path,
+    crate_name: &str,
+    abs_path: &Path,
+) -> anyhow::Result<()> {
+    let cargo_toml_content =
+        fs::read_to_string(cargo_toml_path).context("Failed to read Cargo.toml")?;
+    let mut cargo_toml: Value = cargo_toml_content
+        .parse::<Value>()
+        .context("Failed to parse Cargo.toml")?;
+
+    // If the `name` under [lib] section is set, using the `name` as library name.
+    // Otherwise, using the package name.
+    let crate_path = cargo_toml
+        .get_mut("dependencies")
+        .and_then(|pkg| pkg.get_mut(crate_name));
+    // .and_then(|pkg| pkg.as_str().map(|s| s.to_string()));
+
+    if let Some(Value::Table(table)) = crate_path {
+        table.insert(
+            "path".to_string(),
+            Value::String(abs_path.to_string_lossy().to_string()),
+        );
+    }
+
+    let updated_cargo_toml_content =
+        toml::to_string_pretty(&cargo_toml).context("Failed to serialize updated Cargo.toml")?;
+
+    fs::write(cargo_toml_path, updated_cargo_toml_content)
+        .context("Failed to write updated Cargo.toml")?;
+
+    Ok(())
 }

@@ -22,6 +22,8 @@ pub const ARCH_I686: &str = "x86";
 pub const ARCH_ARM_V7_ABI: &str = "armeabi-v7a";
 pub const ARCH_ARM_64_V8: &str = "arm64-v8a";
 
+pub const FLUTTER_BINDINGS_DIR: &str = "mopro_flutter_bindings";
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Mode {
     Debug,
