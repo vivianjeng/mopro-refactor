@@ -834,6 +834,7 @@ dependencies = [
  "camino",
  "color-eyre",
  "console_error_panic_hook",
+ "flutter_rust_bridge",
  "getrandom 0.2.16",
  "num-bigint",
  "serde",
@@ -1390,7 +1391,6 @@ dependencies = [
 name = "test-e2e"
 version = "0.1.0"
 dependencies = [
- "flutter_rust_bridge",
  "mopro-ffi",
 ]
 

@@ -27,5 +27,4 @@ path = "bin/flutter.rs"
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
-mopro-ffi = { path = "../mopro-ffi", features = ["uniffi", "flutter"] }
-flutter_rust_bridge = { version = "=2.11.1" }
+mopro-ffi = { path = "../mopro-ffi", features = ["flutter"] }

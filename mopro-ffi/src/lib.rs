@@ -19,6 +19,24 @@ macro_rules! uniffi_setup {
     () => {};
 }
 
+#[cfg(feature = "flutter")]
+pub use flutter_rust_bridge::*;
+
+#[cfg(feature = "flutter")]
+#[macro_export]
+macro_rules! flutter_setup {
+    () => {
+        // ::uniffi must be available in the caller’s extern-prelude.
+        extern crate mopro_ffi as flutter_rust_bridge;
+    };
+}
+
+#[cfg(not(feature = "flutter"))]
+#[macro_export]
+macro_rules! flutter_setup {
+    () => {};
+}
+
 // WASM-related exports when targeting WASM
 #[cfg(feature = "wasm")]
 pub use ::wasm_bindgen::*;
@@ -49,5 +67,6 @@ macro_rules! config {
     () => {
         mopro_ffi::uniffi_setup!();
         mopro_ffi::wasm_setup!();
+        mopro_ffi::flutter_setup!();
     };
 }

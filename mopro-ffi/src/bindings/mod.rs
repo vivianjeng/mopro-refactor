@@ -149,16 +149,9 @@ pub fn raw_project_name_from_toml(project_dir: &Path) -> anyhow::Result<String> 
     // If the `name` under [lib] section is set, using the `name` as library name.
     // Otherwise, using the package name.
     let project_name = cargo_toml
-        .get("lib")
-        .and_then(|lib| lib.get("name"))
-        .and_then(|lib| lib.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| {
-            cargo_toml
-                .get("package")
-                .and_then(|pkg| pkg.get("name"))
-                .and_then(|pkg| pkg.as_str().map(|s| s.to_string()))
-        });
+        .get("package")
+        .and_then(|pkg| pkg.get("name"))
+        .and_then(|pkg| pkg.as_str().map(|s| s.to_string()));
 
     project_name.ok_or(anyhow::anyhow!("Failed to find project name in Cargo.toml"))
 }

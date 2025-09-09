@@ -1,4 +1,4 @@
-// mopro_ffi::config!();
+mopro_ffi::config!();
 
 // #[uniffi::export]
 // fn hello_uniffi() -> String {
