@@ -28,3 +28,11 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
 mopro-ffi = { path = "../mopro-ffi", features = ["flutter"] }
+circom-prover = { git = "https://github.com/zkmopro/mopro" }
+rust-witness = "0.1"
+serde_json = "1.0.143"
+num-bigint = "0.4.6"
+lazy_static = "1.5.0"
+
+[build-dependencies]
+rust-witness = "0.1"
