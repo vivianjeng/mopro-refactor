@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use toml::Value;
 
-use crate::bindings::constants::{FlutterArch, FlutterPlatform, Mode, FLUTTER_BINDINGS_DIR};
+use crate::bindings::constants::{
+    Arch, FlutterArch, FlutterPlatform, Mode, ARCH_ARM_64, ARCH_X86_64, FLUTTER_BINDINGS_DIR,
+};
+use crate::bindings::{install_arch, mktemp_local, project_name_from_toml};
 
 use super::raw_project_name_from_toml;
 use super::PlatformBuilder;
@@ -62,6 +65,77 @@ impl PlatformBuilder for FlutterPlatform {
             &project_dir,
         )?;
 
+        // lipo the libraries together
+        let lib_identifier = project_name_from_toml(project_dir)
+            .expect("Failed to get project name from Cargo.toml");
+        let lib_name = format!("lib{lib_identifier}.a");
+        let build_dir_path: PathBuf = project_dir.join("build");
+        let work_dir = mktemp_local(&build_dir_path);
+        // Take a list of architectures, build them, and combine them into
+        // a single universal binary/archive
+        let build_combined_archs = |archs: &[FlutterArch]| -> PathBuf {
+            let out_lib_paths: Vec<PathBuf> = archs
+                .iter()
+                .map(|arch| {
+                    Path::new(&build_dir_path).join(format!(
+                        "{}/{}/{}",
+                        arch.as_str(),
+                        mode.as_str(),
+                        lib_name
+                    ))
+                })
+                .collect();
+            for arch in archs {
+                install_arch(arch.as_str().to_string());
+                let mut build_cmd = Command::new("cargo");
+                build_cmd.arg("build");
+                if mode == Mode::Release {
+                    build_cmd.arg("--release");
+                }
+                // The dependencies of Noir libraries need iOS 15 and above.
+                if params.using_noir {
+                    build_cmd.env("IPHONEOS_DEPLOYMENT_TARGET", "15.0");
+                }
+                build_cmd
+                    .arg("--lib")
+                    .env("CARGO_BUILD_TARGET_DIR", &build_dir_path)
+                    .env("CARGO_BUILD_TARGET", arch.as_str())
+                    .spawn()
+                    .expect("Failed to spawn cargo build")
+                    .wait()
+                    .expect("cargo build errored");
+            }
+            // now lipo the libraries together
+            let mut lipo_cmd = Command::new("lipo");
+            let lib_out = mktemp_local(&build_dir_path).join(lib_name.clone());
+            lipo_cmd
+                .arg("-create")
+                .arg("-output")
+                .arg(lib_out.to_str().unwrap());
+            for p in out_lib_paths {
+                lipo_cmd.arg(p.to_str().unwrap());
+            }
+            lipo_cmd
+                .spawn()
+                .expect("Failed to spawn lipo")
+                .wait()
+                .expect("lipo command failed");
+
+            lib_out
+        };
+
+        let out_lib_paths: Vec<PathBuf> = group_target_archs(&target_archs)
+            .iter()
+            .map(|v| build_combined_archs(v))
+            .collect();
+
+        let out_dylib_path = build_dir_path.join(format!(
+            "{}/{}/{}",
+            target_archs[0].as_str(),
+            mode.as_str(),
+            lib_name.replace(".a", ".dylib")
+        ));
+
         // Generate flutter bindings
         let rust_root = project_dir.join(FLUTTER_BINDINGS_DIR).join("rust");
         let dart_output = project_dir.join(FLUTTER_BINDINGS_DIR).join("lib/src/rust");
@@ -88,6 +162,7 @@ impl PlatformBuilder for FlutterPlatform {
 
 fn init_flutter_bindings(project_dir: &Path) -> anyhow::Result<()> {
     let flutter_bindings_dir = project_dir.join(FLUTTER_BINDINGS_DIR);
+    // TODO: install flutter_rust_bridge_codegen if not exists
     if !flutter_bindings_dir.exists() {
         let status = Command::new("flutter_rust_bridge_codegen")
             .args(["create", FLUTTER_BINDINGS_DIR, "--template", "plugin"])
@@ -143,4 +218,41 @@ fn replace_relative_path_with_absolute(
         .context("Failed to write updated Cargo.toml")?;
 
     Ok(())
+}
+
+// More general cases
+fn group_target_archs(target_archs: &[FlutterArch]) -> Vec<Vec<FlutterArch>> {
+    // Detect the current architecture
+    let current_arch = std::env::consts::ARCH;
+
+    // Determine the device architecture prefix based on the current architecture
+    let device_prefix = match current_arch {
+        arch if arch.starts_with(ARCH_X86_64) => ARCH_X86_64,
+        arch if arch.starts_with(ARCH_ARM_64) => ARCH_ARM_64,
+        _ => panic!("Unsupported host architecture: {current_arch}"),
+    };
+
+    let mut device_archs = Vec::new();
+    let mut simulator_archs = Vec::new();
+
+    target_archs.iter().for_each(|&arch| {
+        let arch_str = arch.as_str();
+        if arch_str.ends_with("sim") {
+            simulator_archs.push(arch);
+        } else if arch_str.starts_with(device_prefix) {
+            device_archs.push(arch);
+        } else {
+            simulator_archs.push(arch);
+        }
+    });
+
+    let mut grouped_archs = Vec::new();
+    if !device_archs.is_empty() {
+        grouped_archs.push(device_archs);
+    }
+    if !simulator_archs.is_empty() {
+        grouped_archs.push(simulator_archs);
+    }
+
+    grouped_archs
 }
