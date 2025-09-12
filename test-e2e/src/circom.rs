@@ -110,7 +110,6 @@ impl From<G2> for CircomProverG2 {
     }
 }
 
-#[flutter_rust_bridge::frb(sync)]
 pub fn generate_circom_proof(zkey_path: String) -> CircomProofResult {
     let inputs = std::collections::HashMap::from([
         ("a".to_string(), vec!["1".to_string()]),
@@ -130,7 +129,6 @@ pub fn generate_circom_proof(zkey_path: String) -> CircomProofResult {
     }
 }
 
-#[flutter_rust_bridge::frb(sync)]
 pub fn verify_circom_proof(proof_result: CircomProofResult, zkey_path: String) -> bool {
     circom_prover::CircomProver::verify(
         circom_prover::prover::ProofLib::Arkworks,

@@ -28,6 +28,10 @@ macro_rules! flutter_setup {
     () => {
         // ::uniffi must be available in the caller’s extern-prelude.
         extern crate mopro_ffi as flutter_rust_bridge;
+        pub fn init_app() {
+            // Default utilities - feel free to customize
+            flutter_rust_bridge::setup_default_user_utils();
+        }
     };
 }
 

@@ -25,10 +25,10 @@ impl PlatformBuilder for FlutterPlatform {
     type Params = FlutterBindingsParams;
 
     fn build(
-        mode: Mode,
+        _mode: Mode,
         project_dir: &Path,
-        target_archs: Vec<Self::Arch>,
-        params: Self::Params,
+        _target_archs: Vec<Self::Arch>,
+        _params: Self::Params,
     ) -> anyhow::Result<PathBuf> {
         // Init flutter bindings template
         init_flutter_bindings(project_dir)?;
@@ -91,9 +91,44 @@ impl PlatformBuilder for FlutterPlatform {
     }
 }
 
+fn install_flutter_rust_bridge_codegen() -> anyhow::Result<()> {
+    let output = Command::new("flutter_rust_bridge_codegen").output();
+    match output {
+        Ok(_) => {
+            // Command exists, no need to install
+            println!("flutter_rust_bridge_codegen already installed.");
+            return Ok(());
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Command not found, proceed with installation
+            println!("flutter_rust_bridge_codegen not found, installing...");
+            let status = Command::new("cargo")
+                .args(["install", "flutter_rust_bridge_codegen@=2.11.1"])
+                .status()
+                .expect("failed to run flutter_rust_bridge_codegen");
+            if !status.success() {
+                return Err(anyhow::anyhow!(
+                    "Failed to install flutter_rust_bridge_codegen"
+                ));
+            }
+        }
+        Err(e) => {
+            // Other error, propagate it
+            return Err(anyhow::anyhow!(
+                "Failed to check for flutter_rust_bridge_codegen: {}",
+                e
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 fn init_flutter_bindings(project_dir: &Path) -> anyhow::Result<()> {
     let flutter_bindings_dir = project_dir.join(FLUTTER_BINDINGS_DIR);
-    // TODO: install flutter_rust_bridge_codegen if not exists
+
+    install_flutter_rust_bridge_codegen()?;
+
     if !flutter_bindings_dir.exists() {
         let status = Command::new("flutter_rust_bridge_codegen")
             .args(["create", FLUTTER_BINDINGS_DIR, "--template", "plugin"])
