@@ -1,11 +1,14 @@
 mopro_ffi::config!();
 
 // circom module
-mod circom;
-// re-export circom module to flutter rust bridge
-pub use circom::{
-    generate_circom_proof, verify_circom_proof, CircomProof, CircomProofResult, G1, G2,
-};
+// mod circom;
+// // re-export circom module to flutter rust bridge
+// pub use circom::{
+//     generate_circom_proof, verify_circom_proof, CircomProof, CircomProofResult, G1, G2,
+// };
+// halo2 module
+mod halo2;
+pub use halo2::{generate_halo2_proof, verify_halo2_proof, Halo2ProofResult};
 
 // #[uniffi::export]
 // fn hello_uniffi() -> String {
@@ -21,5 +24,3 @@ pub use circom::{
 pub fn greet(name: String) -> String {
     format!("Hi Mopro, {name}!")
 }
-
-
