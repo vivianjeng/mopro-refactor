@@ -12,6 +12,9 @@ use super::PlatformBuilder;
 // Maintained for backwards compatibility
 #[inline]
 pub fn build() {
+    if cfg!(feature = "uniffi") {
+        panic!("\"uniffi\" and \"flutter\" features cannot be enabled at the same time, please disable one of them in your Cargo.toml");
+    }
     super::build_from_env::<FlutterPlatform>()
 }
 

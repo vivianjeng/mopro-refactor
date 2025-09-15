@@ -16,6 +16,33 @@ pub mod flutter;
 pub mod ios;
 pub mod web;
 
+/// Stub for feature "uniffi"
+#[cfg(not(feature = "uniffi"))]
+pub mod ios {
+    #[inline]
+    pub fn build() {
+        panic!("\"uniffi\" feature is not enabled, please enable it in your Cargo.toml");
+    }
+}
+
+/// Stub for feature "uniffi"
+#[cfg(not(feature = "uniffi"))]
+pub mod android {
+    #[inline]
+    pub fn build() {
+        panic!("\"uniffi\" feature is not enabled, please enable it in your Cargo.toml");
+    }
+}
+
+/// Stub for feature "flutter"
+#[cfg(not(feature = "flutter"))]
+pub mod flutter {
+    #[inline]
+    pub fn build() {
+        panic!("\"flutter\" feature is not enabled, please enable it in your Cargo.toml");
+    }
+}
+
 /// Builds bindings for the specified platform using environment variables to determine
 /// the build mode, project directory, and target architectures.
 fn build_from_env<Builder: PlatformBuilder>() {
