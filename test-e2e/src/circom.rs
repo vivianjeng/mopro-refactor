@@ -110,14 +110,26 @@ impl From<G2> for CircomProverG2 {
     }
 }
 
-pub fn generate_circom_proof(zkey_path: String) -> CircomProofResult {
-    let inputs = std::collections::HashMap::from([
-        ("a".to_string(), vec!["1".to_string()]),
-        ("b".to_string(), vec!["2".to_string()]),
-    ]);
-    let input_str = serde_json::to_string(&inputs).unwrap();
+#[derive(Debug, Clone, Default)]
+pub enum ProofLib {
+    #[default]
+    Arkworks,
+    Rapidsnark,
+}
+
+pub fn generate_circom_proof(
+    zkey_path: String,
+    circuit_inputs: String,
+    proof_lib: ProofLib,
+) -> CircomProofResult {
+    let chosen_proof_lib = match proof_lib {
+        ProofLib::Arkworks => circom_prover::prover::ProofLib::Arkworks,
+        ProofLib::Rapidsnark => circom_prover::prover::ProofLib::Rapidsnark,
+    };
+    let input_str = serde_json::to_string(&circuit_inputs).unwrap();
+    // TODO: set witness function
     let proof = circom_prover::CircomProver::prove(
-        circom_prover::prover::ProofLib::Arkworks,
+        chosen_proof_lib,
         circom_prover::witness::WitnessFn::RustWitness(multiplier2_witness),
         input_str,
         zkey_path.to_string(),
@@ -129,9 +141,17 @@ pub fn generate_circom_proof(zkey_path: String) -> CircomProofResult {
     }
 }
 
-pub fn verify_circom_proof(proof_result: CircomProofResult, zkey_path: String) -> bool {
+pub fn verify_circom_proof(
+    zkey_path: String,
+    proof_result: CircomProofResult,
+    proof_lib: ProofLib,
+) -> bool {
+    let chosen_proof_lib = match proof_lib {
+        ProofLib::Arkworks => circom_prover::prover::ProofLib::Arkworks,
+        ProofLib::Rapidsnark => circom_prover::prover::ProofLib::Rapidsnark,
+    };
     circom_prover::CircomProver::verify(
-        circom_prover::prover::ProofLib::Arkworks,
+        chosen_proof_lib,
         circom_prover::prover::CircomProof {
             proof: proof_result.proof.into(),
             pub_inputs: proof_result.inputs.into(),
