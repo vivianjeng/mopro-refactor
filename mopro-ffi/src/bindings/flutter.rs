@@ -70,6 +70,9 @@ impl PlatformBuilder for FlutterPlatform {
         // TODO: remove this once the issue is fixed
         patch_cargokit_build_script(project_dir)?;
 
+        // add C++ flag
+        add_cpp_flag_to_ios_podspec(project_dir)?;
+
         // Generate flutter bindings
         let rust_root = project_dir.join(FLUTTER_BINDINGS_DIR).join("rust");
         let dart_output = project_dir.join(FLUTTER_BINDINGS_DIR).join("lib/src/rust");
@@ -208,6 +211,26 @@ fn patch_cargokit_build_script(project_dir: &Path) -> anyhow::Result<()> {
 
     fs::write(&cargo_kit_build_script_path, updated_content)
         .context("Failed to write updated plugin.gradle")?;
+
+    Ok(())
+}
+
+fn add_cpp_flag_to_ios_podspec(project_dir: &Path) -> anyhow::Result<()> {
+    let ios_podspec_path = project_dir
+        .join(FLUTTER_BINDINGS_DIR)
+        .join("ios")
+        .join(format!("{FLUTTER_BINDINGS_DIR}.podspec"));
+    let ios_podspec_content = fs::read_to_string(ios_podspec_path.clone()).context(format!(
+        "Failed to read {}",
+        ios_podspec_path.to_string_lossy()
+    ))?;
+    let updated_content = ios_podspec_content.replace(
+        "'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libmopro_flutter_bindings.a'",
+        "'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libmopro_flutter_bindings.a -lc++'",
+    );
+    fs::write(&ios_podspec_path, updated_content).context(format!(
+        "Failed to write updated {FLUTTER_BINDINGS_DIR}.podspec"
+    ))?;
 
     Ok(())
 }
