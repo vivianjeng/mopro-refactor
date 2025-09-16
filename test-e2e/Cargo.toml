@@ -23,18 +23,47 @@ path = "bin/android.rs"
 name = "flutter"
 path = "bin/flutter.rs"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
 [lib]
 crate-type = ["cdylib", "rlib", "staticlib"]
 
+[features]
+default = ["noir"]
+halo2 = ["dep:plonk-fibonacci", "dep:anyhow"]
+circom = [
+    "dep:circom-prover",
+    "dep:rust-witness",
+    "dep:serde_json",
+    "dep:num-bigint",
+    "dep:lazy_static",
+]
+noir = ["dep:noir_rs", "dep:serde_json", "dep:anyhow"]
+
 [dependencies]
 mopro-ffi = { path = "../mopro-ffi", features = ["flutter"] }
-circom-prover = { git = "https://github.com/zkmopro/mopro" }
-rust-witness = "0.1"
-serde_json = "1.0.143"
-num-bigint = "0.4.6"
-lazy_static = "1.5.0"
-anyhow = "1.0.99"
-plonk-fibonacci = { package = "plonk-fibonacci", git = "https://github.com/sifnoc/plonkish-fibonacci-sample.git" }
+# circom deps
+circom-prover = { git = "https://github.com/zkmopro/mopro", optional = true }
+rust-witness = { version = "0.1", optional = true }
+serde_json = { version = "1.0.143", optional = true }
+num-bigint = { version = "0.4.6", optional = true }
+lazy_static = { version = "1.5.0", optional = true }
+
+# halo2 deps
+anyhow = { version = "1.0.99", optional = true }
+plonk-fibonacci = { package = "plonk-fibonacci", git = "https://github.com/sifnoc/plonkish-fibonacci-sample.git", optional = true }
+
+# noir deps
+noir_rs = { package = "noir", git = "https://github.com/zkmopro/noir-rs", features = [
+    "barretenberg",
+    # "android-compat",
+], branch = "v1.0.0-beta.8-3", optional = true }
 
 [build-dependencies]
-rust-witness = "0.1"
+# circom deps
+rust-witness = { version = "0.1", optional = true }
+
+[dev-dependencies]
+# noir deps
+serial_test = "3.0.0"
