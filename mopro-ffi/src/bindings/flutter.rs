@@ -73,6 +73,12 @@ impl PlatformBuilder for FlutterPlatform {
         // add C++ flag
         add_cpp_flag_to_ios_podspec(project_dir)?;
 
+        // Disable android architecture support
+        disable_android_architecture_support(project_dir)?;
+
+        // Copy libc++_shared.so to jniLibs
+        copy_libcxx_shared_so_to_jni_libs(project_dir)?;
+
         // Generate flutter bindings
         let rust_root = project_dir.join(FLUTTER_BINDINGS_DIR).join("rust");
         let dart_output = project_dir.join(FLUTTER_BINDINGS_DIR).join("lib/src/rust");
@@ -200,17 +206,20 @@ fn patch_cargokit_build_script(project_dir: &Path) -> anyhow::Result<()> {
         .join("plugin.gradle");
     let cargo_kit_build_script_content = fs::read_to_string(cargo_kit_build_script_path.clone())
         .context("Failed to read plugin.gradle")?;
-    let updated_content = cargo_kit_build_script_content.replace(
+    if !cargo_kit_build_script_content.contains("if (plugin.class.name == \"com.flutter.gradle.FlutterPlugin\" || plugin.class.name == \"FlutterPlugin\")") {
+        let updated_content = cargo_kit_build_script_content.replace(
         "if (plugin.class.name == \"com.flutter.gradle.FlutterPlugin\")",
         "if (plugin.class.name == \"com.flutter.gradle.FlutterPlugin\" || plugin.class.name == \"FlutterPlugin\")"
-    );
-    let updated_content = updated_content.replace(
-        "        def platforms = com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms(project).collect()",
+        );
+    
+        let updated_content = updated_content.replace(
+            "        def platforms = com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms(project).collect()",
         "        def List<String> platforms\n            try {\n                platforms = com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms(project).collect()\n            } catch (Exception ignored) {\n                platforms = plugin.getTargetPlatforms().collect()\n            }"
-    );
+        );
 
-    fs::write(&cargo_kit_build_script_path, updated_content)
+        fs::write(&cargo_kit_build_script_path, updated_content)
         .context("Failed to write updated plugin.gradle")?;
+    }
 
     Ok(())
 }
@@ -224,13 +233,82 @@ fn add_cpp_flag_to_ios_podspec(project_dir: &Path) -> anyhow::Result<()> {
         "Failed to read {}",
         ios_podspec_path.to_string_lossy()
     ))?;
-    let updated_content = ios_podspec_content.replace(
+    if !ios_podspec_content.contains("-lc++") {
+        let updated_content = ios_podspec_content.replace(
         "'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libmopro_flutter_bindings.a'",
         "'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libmopro_flutter_bindings.a -lc++'",
-    );
-    fs::write(&ios_podspec_path, updated_content).context(format!(
-        "Failed to write updated {FLUTTER_BINDINGS_DIR}.podspec"
+        );
+        fs::write(&ios_podspec_path, updated_content).context(format!(
+            "Failed to write updated {FLUTTER_BINDINGS_DIR}.podspec"
+        ))?;
+    }
+
+    Ok(())
+}
+
+fn disable_android_architecture_support(project_dir: &Path) -> anyhow::Result<()> {
+    let android_gradle_path = project_dir
+        .join(FLUTTER_BINDINGS_DIR)
+        .join("cargokit")
+        .join("gradle")
+        .join("plugin.gradle");
+    let cargo_kit_build_script_content =
+        fs::read_to_string(android_gradle_path.clone()).context("Failed to read plugin.gradle")?;
+    let updated_content =
+        cargo_kit_build_script_content.replace("        platforms.add(\"android-x86\")", "");
+    let updated_content = updated_content.replace("        platforms.add(\"android-x64\")", "");
+    fs::write(&android_gradle_path, updated_content).context(format!(
+        "Failed to write updated {}",
+        android_gradle_path.to_string_lossy()
     ))?;
+    Ok(())
+}
+
+fn copy_libcxx_shared_so_to_jni_libs(project_dir: &Path) -> anyhow::Result<()> {
+    let android_gradle_path = project_dir
+        .join(FLUTTER_BINDINGS_DIR)
+        .join("cargokit")
+        .join("gradle")
+        .join("plugin.gradle");
+    let cargo_kit_build_script_content =
+        fs::read_to_string(android_gradle_path.clone()).context("Failed to read plugin.gradle")?;
+
+    if !cargo_kit_build_script_content.contains("// After cargo build in CargoKitBuildTask.build()")
+    {
+        let updated_content = cargo_kit_build_script_content.replace(
+        "project.tasks.whenTaskAdded onTask",
+        "project.tasks.whenTaskAdded onTask\n
+                // After cargo build in CargoKitBuildTask.build()
+                def outputDir = new File(cargoOutputDir) // should be build/jniLibs/<buildType>
+
+                // Source path in your NDK sysroot
+                def ndkDir = plugin.project.android.ndkDirectory
+
+                // Map Gradle ABI -> NDK triple dir
+                def abiMap = [
+                    \"arm64-v8a\" : \"aarch64-linux-android\",
+                    \"armeabi-v7a\" : \"arm-linux-androideabi\",
+                    \"x86\"        : \"i686-linux-android\",
+                    \"x86_64\"     : \"x86_64-linux-android\"
+                ]
+
+                abiMap.each { abi, triple ->
+                    def srcLibcxx = new File(\"${ndkDir}/toolchains/llvm/prebuilt/${Os.isFamily(Os.FAMILY_MAC) ? \"darwin-x86_64\" : \"linux-x86_64\"}/sysroot/usr/lib/${triple}/libc++_shared.so\")
+                    def destDir = new File(\"${outputDir}/${abi}\")
+                    destDir.mkdirs()
+                    def destLibcxx = new File(destDir, \"libc++_shared.so\")
+
+                    project.copy {
+                        from srcLibcxx
+                        into destDir
+                    }
+                }"
+        );
+        fs::write(&android_gradle_path, updated_content).context(format!(
+            "Failed to write updated {}",
+            android_gradle_path.to_string_lossy()
+        ))?;
+    }
 
     Ok(())
 }

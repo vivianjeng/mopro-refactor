@@ -6,7 +6,7 @@ mod circom;
 // re-export circom module to flutter rust bridge
 #[cfg(feature = "circom")]
 pub use circom::{
-    generate_circom_proof, verify_circom_proof, CircomProof, CircomProofResult, G1, G2, ProofLib,
+    generate_circom_proof, verify_circom_proof, CircomProof, CircomProofResult, ProofLib, G1, G2,
 };
 
 // halo2 module

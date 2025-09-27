@@ -30,7 +30,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [features]
-default = ["noir"]
+default = ["circom", "halo2", "noir"]
 halo2 = ["dep:plonk-fibonacci", "dep:anyhow"]
 circom = [
     "dep:circom-prover",
@@ -48,7 +48,7 @@ circom-prover = { git = "https://github.com/zkmopro/mopro", optional = true }
 rust-witness = { version = "0.1", optional = true }
 serde_json = { version = "1.0.143", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
-lazy_static = { version = "1.5.0", optional = true }
+lazy_static = { version = "1.4.0", optional = true }
 
 # halo2 deps
 anyhow = { version = "1.0.99", optional = true }
