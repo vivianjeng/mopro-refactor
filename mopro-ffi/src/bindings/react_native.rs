@@ -1,15 +1,12 @@
 use anyhow::Context;
-use std::env::current_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use toml::Value;
 
 use crate::bindings::constants::{
-    Mode, ReactNativeArch, ReactNativePlatform, REACT_NATIVE_BINDINGS_DIR,
+    Arch, Mode, ReactNativeArch, ReactNativePlatform, REACT_NATIVE_BINDINGS_DIR,
 };
 
-use super::raw_project_name_from_toml;
 use super::PlatformBuilder;
 
 // Maintained for backwards compatibility
@@ -28,33 +25,37 @@ impl PlatformBuilder for ReactNativePlatform {
     type Params = ReactNativeBindingsParams;
 
     fn build(
-        _mode: Mode,
+        mode: Mode,
         project_dir: &Path,
-        _target_archs: Vec<Self::Arch>,
+        target_archs: Vec<Self::Arch>,
         _params: Self::Params,
     ) -> anyhow::Result<PathBuf> {
         install_uniffi_bindgen_react_native()?;
 
         fs::create_dir_all(project_dir.join(REACT_NATIVE_BINDINGS_DIR))
             .expect("failed to create bindings directory");
-        fs::write(
-            project_dir
-                .join(REACT_NATIVE_BINDINGS_DIR)
-                .join("ubrn.config.yaml"),
-            include_str!("templates/react_native/ubrn.config.yaml").replace(
-                "<%PATH_TO_PROJECT%>",
-                project_dir.to_string_lossy().to_string().as_str(),
-            ),
-        )
-        .expect("failed to write ubrn.config.yaml");
-        fs::write(
-            project_dir
-                .join(REACT_NATIVE_BINDINGS_DIR)
-                .join("package.json"),
-            include_str!("templates/react_native/package.json"),
-        )
-        .expect("failed to write package.json");
-        generate_react_native_bindings(project_dir)?;
+
+        // Copy the react_native template to the project directory
+        // Get the path to the template directory relative to this source file
+        let template_dir =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("src/bindings/templates/react_native");
+        copy_dir_all(&template_dir, project_dir.join(REACT_NATIVE_BINDINGS_DIR)).with_context(
+            || format!("Failed to copy react_native folder from {:?}", template_dir),
+        )?;
+
+        // Replace the <%PATH_TO_PROJECT%> in the ubrn.config.yaml template with the project directory
+        let target_file = project_dir
+            .join(REACT_NATIVE_BINDINGS_DIR)
+            .join("ubrn.config.yaml");
+
+        let contents = fs::read_to_string(&target_file)
+            .with_context(|| format!("Failed to read ubrn.config.yaml from {:?}", target_file))?
+            .replace("<%PATH_TO_PROJECT%>", &project_dir.to_string_lossy());
+
+        fs::write(&target_file, contents)
+            .with_context(|| format!("Failed to write ubrn.config.yaml to {:?}", target_file))?;
+
+        generate_react_native_bindings(project_dir, target_archs, mode)?;
         Ok(PathBuf::from(REACT_NATIVE_BINDINGS_DIR))
     }
 }
@@ -75,6 +76,7 @@ fn install_uniffi_bindgen_react_native() -> anyhow::Result<()> {
                     "clone",
                     "https://github.com/jhugman/uniffi-bindgen-react-native.git",
                 ])
+                .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")))
                 .status()
                 .expect("failed to download uniffi-bindgen-react-native");
             if !status.success() {
@@ -82,15 +84,13 @@ fn install_uniffi_bindgen_react_native() -> anyhow::Result<()> {
                     "Failed to download uniffi-bindgen-react-native"
                 ));
             }
-            let status = Command::new("cd")
-                .args(["crates/ubrn_cli"])
-                .status()
-                .expect("failed to cd to crates/ubrn_cli");
-            if !status.success() {
-                return Err(anyhow::anyhow!("Failed to cd to crates/ubrn_cli"));
-            }
+
             let status = Command::new("cargo")
                 .args(["install", "--path", "."])
+                .current_dir(
+                    Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("uniffi-bindgen-react-native/crates/ubrn_cli"),
+                )
                 .status()
                 .expect("failed to install uniffi-bindgen-react-native");
             if !status.success() {
@@ -98,15 +98,10 @@ fn install_uniffi_bindgen_react_native() -> anyhow::Result<()> {
                     "Failed to install uniffi-bindgen-react-native"
                 ));
             }
-            let status = Command::new("cd")
-                .args(["../.."])
-                .status()
-                .expect("failed to cd to ...");
-            if !status.success() {
-                return Err(anyhow::anyhow!("Failed to cd to ..."));
-            }
-            fs::remove_dir_all("uniffi-bindgen-react-native")
-                .expect("failed to remove uniffi-bindgen-react-native");
+            fs::remove_dir_all(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("uniffi-bindgen-react-native"),
+            )
+            .expect("failed to remove uniffi-bindgen-react-native");
         }
         Err(e) => {
             // Other error, propagate it
@@ -120,7 +115,28 @@ fn install_uniffi_bindgen_react_native() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn generate_react_native_bindings(project_dir: &Path) -> anyhow::Result<()> {
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let dest_path = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_all(entry.path(), &dest_path)?;
+        } else {
+            fs::copy(entry.path(), dest_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn generate_react_native_bindings(
+    project_dir: &Path,
+    target_archs: Vec<ReactNativeArch>,
+    mode: Mode,
+) -> anyhow::Result<()> {
     let bindings_dir = project_dir.join(REACT_NATIVE_BINDINGS_DIR);
     let status = Command::new("uniffi-bindgen-react-native")
         .args(["generate", "jsi", "turbo-module"])
@@ -131,13 +147,32 @@ fn generate_react_native_bindings(project_dir: &Path) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("Failed to generate react native bindings"));
     }
 
-    let status = Command::new("uniffi-bindgen-react-native")
-        .args(["build", "ios", "--and-generate", "--release"])
-        .current_dir(bindings_dir)
-        .status()
-        .expect("failed to build react native bindings");
-    if !status.success() {
-        return Err(anyhow::anyhow!("Failed to build react native bindings"));
+    for target_arch in target_archs {
+        let mut platform = "android";
+        if target_arch.as_str().contains("ios") {
+            platform = "ios";
+        }
+        let mut args = vec![
+            "build".to_string(),
+            platform.to_string(),
+            "--and-generate".to_string(),
+        ];
+
+        if mode == Mode::Release {
+            args.push("--release".to_string());
+        }
+
+        args.push("--targets".to_string());
+        args.push(target_arch.as_str().to_string());
+
+        let status = Command::new("uniffi-bindgen-react-native")
+            .args(&args)
+            .current_dir(&bindings_dir)
+            .status()
+            .expect("failed to build react native bindings");
+        if !status.success() {
+            return Err(anyhow::anyhow!("Failed to build react native bindings"));
+        }
     }
     Ok(())
 }

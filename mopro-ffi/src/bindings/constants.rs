@@ -385,7 +385,7 @@ struct ReactNativeArchInfo {
     description: &'static str,
 }
 
-const REACT_NATIVE_ARCHS: [ReactNativeArchInfo; 3] = [
+const REACT_NATIVE_ARCHS: [ReactNativeArchInfo; 7] = [
     ReactNativeArchInfo {
         arch: ReactNativeArch::Aarch64Apple,
         str: "aarch64-apple-ios",
@@ -401,26 +401,26 @@ const REACT_NATIVE_ARCHS: [ReactNativeArchInfo; 3] = [
         str: "x86_64-apple-ios",
         description: "x86_64 iOS simulator on Intel Macs",
     },
-    // FlutterArchInfo {
-    //     arch: FlutterArch::X8664Linux,
-    //     str: "x86_64-linux-android",
-    //     description: "64-bit Android emulators (x86_64 architecture)",
-    // },
-    // FlutterArchInfo {
-    //     arch: FlutterArch::I686Linux,
-    //     str: "i686-linux-android",
-    //     description: "32-bit Android emulators (x86 architecture, legacy)",
-    // },
-    // FlutterArchInfo {
-    //     arch: FlutterArch::Armv7LinuxAbi,
-    //     str: "armv7-linux-androideabi",
-    //     description: "32-bit ARM devices (older Android smartphones/tablets)",
-    // },
-    // FlutterArchInfo {
-    //     arch: FlutterArch::Aarch64Linux,
-    //     str: "aarch64-linux-android",
-    //     description: "64-bit ARM devices (modern Android smartphones/tablets)",
-    // },
+    ReactNativeArchInfo {
+        arch: ReactNativeArch::X8664Linux,
+        str: "x86_64-linux-android",
+        description: "64-bit Android emulators (x86_64 architecture)",
+    },
+    ReactNativeArchInfo {
+        arch: ReactNativeArch::I686Linux,
+        str: "i686-linux-android",
+        description: "32-bit Android emulators (x86 architecture, legacy)",
+    },
+    ReactNativeArchInfo {
+        arch: ReactNativeArch::Armv7LinuxAbi,
+        str: "armv7-linux-androideabi",
+        description: "32-bit ARM devices (older Android smartphones/tablets)",
+    },
+    ReactNativeArchInfo {
+        arch: ReactNativeArch::Aarch64Linux,
+        str: "aarch64-linux-android",
+        description: "64-bit ARM devices (modern Android smartphones/tablets)",
+    },
 ];
 
 impl Arch for ReactNativeArch {
@@ -433,7 +433,7 @@ impl Arch for ReactNativeArch {
             .iter()
             .find(|info| info.arch == *self)
             .map(|info| info.str)
-            .expect("Unsupported iOS Arch")
+            .expect("Unsupported React Native Arch")
     }
 
     fn parse_from_str<S: AsRef<str>>(s: S) -> Self {
@@ -441,7 +441,7 @@ impl Arch for ReactNativeArch {
             .iter()
             .find(|info| info.str.to_lowercase() == s.as_ref().to_lowercase())
             .map(|info| info.arch)
-            .context(format!("Unsupported iOS Arch '{}'", s.as_ref()))
+            .context(format!("Unsupported React Native Arch '{}'", s.as_ref()))
             .unwrap()
     }
 
